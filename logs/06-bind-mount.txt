@@ -1,0 +1,24 @@
+$ cd ~/workspace/e1-1
+
+$ mkdir -p bind-demo && echo "<h1>bind mount v1</h1>" > bind-demo/index.html
+
+$ docker run -d -p 8092:80 -v "$(pwd)/bind-demo:/usr/share/nginx/html:ro" --name e11-bind e11-web:1.0
+fe69e477e0e7628db7631248fe37a69b6a0bae66a86f4731eb11b8d998add68b
+
+$ curl -s http://localhost:8092/    # 변경 전
+<h1>bind mount v1</h1>
+
+$ echo "<h1>bind mount v2 (edited on host)</h1>" > bind-demo/index.html
+
+$ curl -s http://localhost:8092/    # 호스트 파일만 수정, 컨테이너 재시작/재빌드 없음
+<h1>bind mount v2 (edited on host)</h1>
+
+$ docker exec e11-bind cat /usr/share/nginx/html/index.html
+<h1>bind mount v2 (edited on host)</h1>
+
+$ docker inspect -f "{{json .Mounts}}" e11-bind
+[{"Type":"bind","Source":"/home/jin03/workspace/e1-1/bind-demo","Destination":"/usr/share/nginx/html","Mode":"ro","RW":false,"Propagation":"rprivate"}]
+
+$ docker rm -f e11-bind
+e11-bind
+

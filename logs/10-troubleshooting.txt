@@ -1,0 +1,22 @@
+$ docker run -d --init --name e11-init ubuntu:24.04 sleep infinity
+0e6ad2d2ab2d33e79d5f000348440d839caac93e511d36c475dd06df1d0d8e34
+
+$ docker exec e11-init ps -o pid,comm 2>/dev/null || docker top e11-init
+    PID COMMAND
+      1 docker-init
+      7 sleep
+      8 ps
+
+$ time docker stop e11-init
+e11-init
+
+real	0m0.198s
+user	0m0.006s
+sys	0m0.011s
+
+$ docker inspect -f "ExitCode={{.State.ExitCode}}" e11-init
+ExitCode=143
+
+$ docker rm e11-init
+e11-init
+

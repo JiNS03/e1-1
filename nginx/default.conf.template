@@ -1,0 +1,18 @@
+# nginx 공식 이미지는 컨테이너 시작 시 /etc/nginx/templates/*.template 의
+# ${VAR} 를 환경 변수로 치환해 /etc/nginx/conf.d/ 에 생성한다.
+server {
+    listen       ${NGINX_PORT};
+    server_name  localhost;
+
+    add_header X-App-Env "${APP_ENV}" always;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html;
+    }
+
+    location = /health {
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+}

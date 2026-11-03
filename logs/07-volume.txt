@@ -1,0 +1,41 @@
+$ docker volume create e11-data
+e11-data
+
+$ docker volume ls --filter name=e11-data
+DRIVER    VOLUME NAME
+local     e11-data
+
+$ docker run -d --name e11-vol -v e11-data:/data ubuntu:24.04 sleep infinity
+6904dd669d9570e9c082a19df7dcf1edf699bf582e4db2c522cdf80b5d3fcb45
+
+$ docker exec e11-vol bash -c "echo persisted-at-$(date +%F) > /data/hello.txt && cat /data/hello.txt"
+persisted-at-2026-11-03
+
+$ docker rm -f e11-vol    # 컨테이너 삭제
+e11-vol
+
+$ docker ps -a --filter name=e11-vol
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+$ docker run -d --name e11-vol2 -v e11-data:/data ubuntu:24.04 sleep infinity
+f87f5107c1c23b4a00efa839da34ce1fde86a94c495ddac02826acaeb61f18f6
+
+$ docker exec e11-vol2 cat /data/hello.txt    # 새 컨테이너에서도 데이터 유지
+persisted-at-2026-11-03
+
+$ docker volume inspect e11-data
+[
+    {
+        "CreatedAt": "2026-11-03T04:39:04Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/e11-data/_data",
+        "Name": "e11-data",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+
+$ docker rm -f e11-vol2
+e11-vol2
+

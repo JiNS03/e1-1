@@ -1,0 +1,81 @@
+$ cd ~/workspace/e1-1
+
+$ docker compose version
+Docker Compose version v5.6.1
+
+$ docker compose -f compose.single.yml up -d 2>&1
+ Network e1-1_default Creating 
+ Network e1-1_default Creating 
+ Network e1-1_default Created 
+ Network e1-1_default Created 
+ Container e1-1-web-1 Creating 
+ Container e1-1-web-1 Created 
+ Container e1-1-web-1 Starting 
+ Container e1-1-web-1 Started 
+
+$ docker compose -f compose.single.yml ps
+NAME         IMAGE         COMMAND                  SERVICE   CREATED         STATUS                   PORTS
+e1-1-web-1   e11-web:1.0   "/docker-entrypoint.…"   web       3 seconds ago   Up 3 seconds (healthy)   0.0.0.0:8093->80/tcp, [::]:8093->80/tcp
+
+$ curl -s http://localhost:8093/health
+ok
+
+$ docker compose -f compose.single.yml down 2>&1
+ Container e1-1-web-1 Stopping 
+ Container e1-1-web-1 Stopped 
+ Container e1-1-web-1 Removing 
+ Container e1-1-web-1 Removed 
+ Network e1-1_default Removing 
+ Network e1-1_default Removed 
+
+$ docker compose up -d 2>&1
+ Network e1-1_default Creating 
+ Network e1-1_default Creating 
+ Network e1-1_default Created 
+ Network e1-1_default Created 
+ Container e1-1-web-1 Creating 
+ Container e1-1-web-1 Created 
+ Container e1-1-checker-1 Creating 
+ Container e1-1-checker-1 Created 
+ Container e1-1-web-1 Starting 
+ Container e1-1-web-1 Started 
+ Container e1-1-checker-1 Starting 
+ Container e1-1-checker-1 Started 
+
+$ docker compose ps
+NAME             IMAGE         COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+e1-1-checker-1   alpine:3.20   "sh -c 'while true; …"   checker   13 seconds ago   Up 12 seconds             
+e1-1-web-1       e11-web:1.0   "/docker-entrypoint.…"   web       13 seconds ago   Up 12 seconds (healthy)   0.0.0.0:8093->8080/tcp, [::]:8093->8080/tcp
+
+$ docker compose logs checker | tail -3
+checker-1  | [checker] 04:39:11 web:8080/health -> ok
+checker-1  | [checker] 04:39:16 web:8080/health -> ok
+checker-1  | [checker] 04:39:21 web:8080/health -> ok
+
+$ docker compose exec checker wget -qO- http://web:8080/health
+ok
+
+$ docker compose exec checker nslookup web 2>&1 | tail -3
+Name:	web
+Address: 172.18.0.2
+
+
+$ curl -sI http://localhost:8093/ | grep -i -E "^HTTP|x-app-env"
+HTTP/1.1 200 OK
+X-App-Env: compose
+
+$ docker compose down 2>&1
+ Container e1-1-checker-1 Stopping 
+ Container e1-1-checker-1 Stopped 
+ Container e1-1-checker-1 Removing 
+ Container e1-1-checker-1 Removed 
+ Container e1-1-web-1 Stopping 
+ Container e1-1-web-1 Stopped 
+ Container e1-1-web-1 Removing 
+ Container e1-1-web-1 Removed 
+ Network e1-1_default Removing 
+ Network e1-1_default Removed 
+
+$ docker compose ps
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+

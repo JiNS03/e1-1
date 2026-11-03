@@ -1,0 +1,13 @@
+$ git config --global user.name
+JiNS03
+
+$ git config --global init.defaultBranch
+main
+
+$ git config --list --show-origin | grep -v -i -E "token|password"
+file:/home/jin03/.gitconfig	user.name=JiNS03
+file:/home/jin03/.gitconfig	user.email=****@gmail.com
+file:/home/jin03/.gitconfig	init.defaultbranch=main
+command line:	credential.interactive=false
+command line:	credential.guiprompt=false
+

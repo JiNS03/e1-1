@@ -1,0 +1,67 @@
+$ cd ~
+
+$ pwd
+/home/jin03
+
+$ mkdir -p ~/workspace/practice/docs
+
+$ cd ~/workspace/practice
+
+$ pwd
+/home/jin03/workspace/practice
+
+$ touch empty.txt
+
+$ echo "hello codyssey" > note.txt
+
+$ ls -la
+total 16
+drwxr-xr-x 3 jin03 jin03 4096 Nov  3 13:38 .
+drwxr-xr-x 4 jin03 jin03 4096 Nov  3 13:38 ..
+drwxr-xr-x 2 jin03 jin03 4096 Nov  3 13:38 docs
+-rw-r--r-- 1 jin03 jin03    0 Nov  3 13:38 empty.txt
+-rw-r--r-- 1 jin03 jin03   15 Nov  3 13:38 note.txt
+
+$ cat note.txt
+hello codyssey
+
+$ cat empty.txt; echo "(empty.txt size: $(stat -c %s empty.txt) bytes)"
+(empty.txt size: 0 bytes)
+
+$ cp note.txt note_copy.txt
+
+$ mv note_copy.txt renamed.txt
+
+$ mv renamed.txt docs/
+
+$ ls -la docs
+total 12
+drwxr-xr-x 2 jin03 jin03 4096 Nov  3 13:38 .
+drwxr-xr-x 3 jin03 jin03 4096 Nov  3 13:38 ..
+-rw-r--r-- 1 jin03 jin03   15 Nov  3 13:38 renamed.txt
+
+$ cd docs
+
+$ pwd
+/home/jin03/workspace/practice/docs
+
+$ cat ../note.txt              # 상대 경로: 현재 위치(docs) 기준
+hello codyssey
+
+$ cat ~/workspace/practice/note.txt   # 절대 경로: 루트(/) 기준, 어디서든 동일
+hello codyssey
+
+$ cd ..
+
+$ rm docs/renamed.txt
+
+$ rmdir docs
+
+$ rm empty.txt
+
+$ ls -la
+total 12
+drwxr-xr-x 2 jin03 jin03 4096 Nov  3 13:38 .
+drwxr-xr-x 4 jin03 jin03 4096 Nov  3 13:38 ..
+-rw-r--r-- 1 jin03 jin03   15 Nov  3 13:38 note.txt
+

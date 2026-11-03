@@ -1,0 +1,17 @@
+# 보너스 2~4: 멀티 컨테이너 + 환경 변수 주입
+services:
+  web:
+    build: .
+    image: e11-web:1.0
+    environment:
+      NGINX_PORT: "8080"   # 컨테이너 내부 listen 포트를 80 -> 8080 으로 변경
+      APP_ENV: "compose"   # 응답 헤더 X-App-Env 값 변경
+    ports:
+      - "8093:8080"
+
+  checker:
+    image: alpine:3.20
+    depends_on:
+      - web
+    # 서비스 이름(web)으로 다른 컨테이너에 접근 = Compose 기본 네트워크의 DNS
+    command: sh -c 'while true; do echo "[checker] $$(date +%T) web:8080/health -> $$(wget -qO- http://web:8080/health)"; sleep 5; done'

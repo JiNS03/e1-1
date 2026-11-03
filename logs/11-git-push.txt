@@ -1,0 +1,7 @@
+$ git init
+Initialized empty Git repository in /home/jin03/workspace/e1-1/.git/
+
+$ git branch --show-current
+main
+
+$ git add -A

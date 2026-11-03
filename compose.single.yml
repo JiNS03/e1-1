@@ -1,0 +1,8 @@
+# 보너스 1: 단일 서비스 Compose
+# docker run -d -p 8093:80 --name ... e11-web:1.0 을 "문서화된 실행 설정"으로 옮긴 것
+services:
+  web:
+    build: .
+    image: e11-web:1.0
+    ports:
+      - "8093:80"

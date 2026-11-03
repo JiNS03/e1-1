@@ -1,0 +1,32 @@
+$ cd ~/workspace/practice
+
+$ touch perm_file.txt && mkdir -p perm_dir
+
+$ ls -ld perm_file.txt perm_dir        # 변경 전
+drwxr-xr-x 2 jin03 jin03 4096 Nov  3 13:38 perm_dir
+-rw-r--r-- 1 jin03 jin03    0 Nov  3 13:38 perm_file.txt
+
+$ stat -c "%A %a %n" perm_file.txt perm_dir
+-rw-r--r-- 644 perm_file.txt
+drwxr-xr-x 755 perm_dir
+
+$ chmod 755 perm_file.txt
+
+$ chmod 700 perm_dir
+
+$ ls -ld perm_file.txt perm_dir        # 변경 후
+drwx------ 2 jin03 jin03 4096 Nov  3 13:38 perm_dir
+-rwxr-xr-x 1 jin03 jin03    0 Nov  3 13:38 perm_file.txt
+
+$ stat -c "%A %a %n" perm_file.txt perm_dir
+-rwxr-xr-x 755 perm_file.txt
+drwx------ 700 perm_dir
+
+$ chmod u=rw,go=r perm_file.txt        # 기호 표기 = 644
+
+$ chmod 755 perm_dir
+
+$ stat -c "%A %a %n" perm_file.txt perm_dir   # 원복
+-rw-r--r-- 644 perm_file.txt
+drwxr-xr-x 755 perm_dir
+

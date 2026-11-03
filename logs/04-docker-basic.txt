@@ -1,0 +1,141 @@
+$ docker pull hello-world
+Using default tag: latest
+latest: Pulling from library/hello-world
+Digest: sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
+Status: Image is up to date for hello-world:latest
+docker.io/library/hello-world:latest
+
+$ docker run --name e11-hello hello-world
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+
+
+$ docker pull ubuntu:24.04
+24.04: Pulling from library/ubuntu
+Digest: sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+Status: Image is up to date for ubuntu:24.04
+docker.io/library/ubuntu:24.04
+
+$ docker images
+IMAGE                ID             DISK USAGE   CONTENT SIZE   EXTRA
+alpine:3.20          d9e853e87e55       12.2MB         3.71MB        
+e11-web:1.0          fd99c925c871       93.6MB         26.3MB   U    
+hello-world:latest   c567b231f656       25.9kB         9.49kB   U    
+my-web:1.0           1c4944c0d127       93.6MB         26.3MB   U    
+nginx:alpine         785835ea65db       94.5MB         27.2MB        
+ubuntu:24.04         fe81560990fa        119MB         31.7MB        
+ubuntu:latest        6a06111c3b0a        163MB         45.9MB        
+
+$ docker run --rm ubuntu:24.04 bash -c "ls / && echo hello-from-ubuntu && cat /etc/os-release | head -2"
+bin
+boot
+dev
+etc
+home
+lib
+lib64
+media
+mnt
+opt
+proc
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
+hello-from-ubuntu
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+
+$ docker run -d --name e11-ubuntu ubuntu:24.04 sleep infinity
+cab96f65cbeb559d00b1f45ab5ade77edde89a5c1085701cfe75fd67d56a7436
+
+$ docker exec e11-ubuntu bash -c "echo exec-into-container && ls /tmp && hostname"
+exec-into-container
+cab96f65cbeb
+
+$ docker ps --filter name=e11-ubuntu    # exec 가 끝나도 컨테이너는 계속 실행 중
+CONTAINER ID   IMAGE          COMMAND            CREATED                  STATUS                  PORTS     NAMES
+cab96f65cbeb   ubuntu:24.04   "sleep infinity"   Less than a second ago   Up Less than a second             e11-ubuntu
+
+$ docker run -di --name e11-ubuntu-attach ubuntu:24.04 bash
+0aad60bf5b716e00091fceefefbc3ce1dc24b52dee535ff7ca085e07a100cf52
+
+$ echo "echo hello-from-attach; exit" | docker attach e11-ubuntu-attach
+
+$ docker ps -a --filter name=e11-ubuntu    # attach 로 메인 프로세스(bash)를 끝내면 컨테이너도 종료
+CONTAINER ID   IMAGE          COMMAND            CREATED                  STATUS                              PORTS     NAMES
+0aad60bf5b71   ubuntu:24.04   "bash"             Less than a second ago   Exited (0) Less than a second ago             e11-ubuntu-attach
+cab96f65cbeb   ubuntu:24.04   "sleep infinity"   1 second ago             Up Less than a second                         e11-ubuntu
+
+$ docker logs e11-ubuntu-attach    # attach 화면에는 안 보였던 출력이 로그에는 남아 있음
+hello-from-attach
+
+$ time docker stop e11-ubuntu
+e11-ubuntu
+
+real	0m3.214s
+user	0m0.012s
+sys	0m0.000s
+
+$ docker inspect -f "ExitCode={{.State.ExitCode}}" e11-ubuntu
+ExitCode=137
+
+$ docker ps
+CONTAINER ID   IMAGE         COMMAND                  CREATED              STATUS                        PORTS                                     NAMES
+063a332ff621   e11-web:1.0   "/docker-entrypoint.…"   About a minute ago   Up About a minute (healthy)   0.0.0.0:8091->80/tcp, [::]:8091->80/tcp   e11-web-8091
+8b3cfc492c5b   e11-web:1.0   "/docker-entrypoint.…"   About a minute ago   Up About a minute (healthy)   0.0.0.0:8090->80/tcp, [::]:8090->80/tcp   e11-web-8090
+12e6b58fda8c   my-web:1.0    "/docker-entrypoint.…"   31 minutes ago       Up 31 minutes (healthy)       0.0.0.0:8081->80/tcp, [::]:8081->80/tcp   my-web-8081
+74c459915df6   my-web:1.0    "/docker-entrypoint.…"   32 minutes ago       Up 32 minutes (healthy)       0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   my-web-8080
+
+$ docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED              STATUS                                PORTS                                     NAMES
+0aad60bf5b71   ubuntu:24.04   "bash"                   3 seconds ago        Exited (0) 3 seconds ago                                                        e11-ubuntu-attach
+cab96f65cbeb   ubuntu:24.04   "sleep infinity"         4 seconds ago        Exited (137) Less than a second ago                                             e11-ubuntu
+da8272f60e15   hello-world    "/hello"                 7 seconds ago        Exited (0) 6 seconds ago                                                        e11-hello
+063a332ff621   e11-web:1.0    "/docker-entrypoint.…"   About a minute ago   Up About a minute (healthy)           0.0.0.0:8091->80/tcp, [::]:8091->80/tcp   e11-web-8091
+8b3cfc492c5b   e11-web:1.0    "/docker-entrypoint.…"   About a minute ago   Up About a minute (healthy)           0.0.0.0:8090->80/tcp, [::]:8090->80/tcp   e11-web-8090
+12e6b58fda8c   my-web:1.0     "/docker-entrypoint.…"   31 minutes ago       Up 31 minutes (healthy)               0.0.0.0:8081->80/tcp, [::]:8081->80/tcp   my-web-8081
+74c459915df6   my-web:1.0     "/docker-entrypoint.…"   32 minutes ago       Up 32 minutes (healthy)               0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   my-web-8080
+2f9588fc57fa   hello-world    "/hello"                 54 minutes ago       Exited (0) 54 minutes ago                                                       gifted_elbakyan
+ba8a7e84a6be   hello-world    "/hello"                 About an hour ago    Exited (0) About an hour ago                                                    admiring_euler
+
+$ docker logs e11-hello | head -8
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+
+$ docker start e11-ubuntu
+e11-ubuntu
+
+$ docker stats --no-stream e11-ubuntu
+CONTAINER ID   NAME         CPU %     MEM USAGE / LIMIT   MEM %     NET I/O      BLOCK I/O   PIDS
+cab96f65cbeb   e11-ubuntu   0.00%     840KiB / 15.38GiB   0.01%     390B / 84B   0B / 0B     1
+
