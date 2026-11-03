@@ -5,3 +5,32 @@ $ git branch --show-current
 main
 
 $ git add -A
+
+$ git commit -q -m "E1-1: 미션 수행 결과물 초기 커밋" && git log --oneline
+9c9471f E1-1: 미션 수행 결과물 초기 커밋
+
+$ git remote add origin https://github.com/JiNS03/e1-1.git
+
+$ git remote -v
+origin	https://github.com/JiNS03/e1-1.git (fetch)
+origin	https://github.com/JiNS03/e1-1.git (push)
+
+$ git config --get credential.helper || echo "(credential.helper 미설정)"
+(credential.helper 미설정)
+
+$ GIT_TERMINAL_PROMPT=0 git push -u origin main
+fatal: unable to get password from user
+
+$ git config --local credential.helper "!'/mnt/c/Program Files/GitHub CLI/gh.exe' auth git-credential"
+
+$ git config --local --get credential.helper
+!'/mnt/c/Program Files/GitHub CLI/gh.exe' auth git-credential
+
+$ git push -u origin main
+To https://github.com/JiNS03/e1-1.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+
+$ git status -sb | head -1
+## main...origin/main
+
