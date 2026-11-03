@@ -67,7 +67,7 @@
 - [x] GitHub 저장소 생성 및 push → [§13](#13-git-설정-및-github-연동)
 - [ ] VSCode GitHub 로그인 연동 스크린샷 → [§13](#13-git-설정-및-github-연동)
 - [x] (보너스) Compose 단일/멀티 컨테이너, up/down/ps/logs, 환경 변수 주입 → [§14](#14-보너스-compose--환경-변수)
-- [x] 트러블슈팅 4건 → [§15](#15-트러블슈팅)
+- [x] 트러블슈팅 5건 (포트 충돌 확인·해제 절차 포함) → [§15](#15-트러블슈팅)
 
 ## 4. 저장소 구조
 
@@ -636,6 +636,97 @@ To https://github.com/JiNS03/e1-1.git
 
 > 대안: WSL 안에 `gh`를 설치해 `gh auth login` 후 `gh auth setup-git`을 하거나, SSH 키를 등록해 `git@github.com:` 주소로 push한다.
 
+### #5. 포트 충돌 (`port is already allocated` / `Address already in use`)
+
+전체 로그: [`logs/12-port-conflict.txt`](logs/12-port-conflict.txt)
+
+| 단계 | 내용 |
+|---|---|
+| 문제 | 이미 `e11-web-8090`이 쓰고 있는 8090으로 컨테이너를 하나 더 띄우자 `Bind for 0.0.0.0:8090 failed: port is already allocated`가 발생했다. 일반 프로세스끼리도 같은 포트를 쓰면 `OSError: [Errno 98] Address already in use`가 난다. |
+| 원인 가설 | 하나의 호스트 포트(IP:PORT)는 한 프로세스만 LISTEN할 수 있다. 다른 컨테이너나 프로세스가 이미 그 포트를 점유하고 있다. |
+| 확인 | ① **누가** 점유했는지 찾는다: `ss -ltnp`, `lsof -i :<port>`, 컨테이너라면 `docker ps --filter publish=<port>` ② **PID와 실행 명령**을 확인한다: `ps -o pid,user,cmd -p <PID>` |
+| 해결 | ③ 점유한 쪽을 **종료**한다: 컨테이너는 `docker stop <name>`, 프로세스는 `kill <PID>`(SIGTERM). 응답이 없을 때만 `kill -9`를 쓴다. ④ **포트가 비었는지 재확인**한다: `lsof -i :<port>` 또는 `ss -ltn` ⑤ 원래 서비스를 **재시작**하고 `curl`로 응답을 확인한다. 기존 프로세스를 멈출 수 없으면 `-p 8095:80`처럼 **호스트 포트만 바꾼다**. |
+
+**[A] 컨테이너가 포트를 점유한 경우**
+
+```bash
+$ docker run -d -p 8090:80 --name e11-conflict e11-web:1.0
+docker: Error response from daemon: ... Bind for 0.0.0.0:8090 failed: port is already allocated
+$ docker rm -f e11-conflict                    # 생성만 되고 시작 실패한 컨테이너 정리
+
+# ① 점유 컨테이너 확인
+$ docker ps --filter publish=8090 --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"
+CONTAINER ID   NAMES          PORTS
+17707e4a649c   e11-web-8090   0.0.0.0:8090->80/tcp, [::]:8090->80/tcp
+
+# ③ 종료 → ④ 해제 확인
+$ docker stop e11-web-8090
+$ docker ps --filter publish=8090 --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"
+CONTAINER ID   NAMES     PORTS
+
+# ⑤ 재실행 및 응답 확인
+$ docker run -d -p 8090:80 --name e11-conflict e11-web:1.0
+$ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8090/
+200
+```
+
+**[B] 일반 프로세스가 포트를 점유한 경우**
+
+```bash
+$ python3 -m http.server 8095                  # 이미 8095를 쓰는 서버가 있는 상태
+OSError: [Errno 98] Address already in use
+
+# ① 점유 프로세스 확인 (ss / lsof)
+$ ss -ltnp | grep ":8095 "
+LISTEN 0      5             0.0.0.0:8095      0.0.0.0:*    users:(("python3",pid=9353,fd=3))
+$ lsof -i :8095
+COMMAND  PID  USER FD   TYPE DEVICE SIZE/OFF NODE NAME
+python3 9353 jin03 3u  IPv4 146774      0t0  TCP *:8095 (LISTEN)
+
+# ② PID → 실행 명령 확인 (무엇을 끄는지 확인하고 종료)
+$ ps -o pid,user,cmd -p $(lsof -t -i :8095)
+    PID USER     CMD
+   9353 jin03    python3 -m http.server 8095
+
+# ③ 종료 (SIGTERM, 안 되면 kill -9)
+$ kill $(lsof -t -i :8095)
+
+# ④ 해제 확인
+$ lsof -i :8095 || echo "8095 free"
+8095 free
+
+# ⑤ 재시작 및 확인
+$ python3 -m http.server 8095 &
+$ ss -ltnp | grep ":8095 "
+LISTEN 0      5             0.0.0.0:8095      0.0.0.0:*    users:(("python3",pid=9374,fd=3))
+$ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8095/
+200
+```
+
+**[C] 관찰: Docker Desktop + WSL 환경의 주의점**
+
+- Docker Desktop은 WSL 배포판과 **별도의 VM**에서 컨테이너를 실행한다. 그래서 WSL에서 `lsof -i :8090`을 해도 컨테이너가 점유한 포트의 프로세스는 보이지 않는다. 컨테이너 포트는 `docker ps --filter publish=<port>`로 찾는 것이 정확하다.
+- 반대로 WSL 안의 프로세스(`python3`, 8096)가 포트를 쓰고 있어도 `docker run -p 8096:80`이 충돌 없이 성공했다. 두 포트가 서로 다른 네트워크 공간에 있어서, `localhost:8096`이 어느 쪽으로 연결될지 헷갈릴 수 있으므로 같은 포트를 겹쳐 쓰지 않는다.
+- `docker stop` 직후 WSL의 `ss -ltn`에는 포트가 잠시 남아 보였고, 3초 후 다시 확인하니 사라져 있었다. 해제 여부는 잠깐 기다린 뒤 다시 확인한다.
+
+```bash
+$ docker stop e11-web-8091 && ss -ltn | grep ":8091 "
+LISTEN 0      4096                *:8091            *:*
+$ sleep 3; ss -ltn | grep ":8091 " || echo "8091 free"
+8091 free
+```
+
+**OS별 명령 대응표**
+
+| 단계 | Linux / WSL | macOS (OrbStack 포함) | Windows (PowerShell) |
+|---|---|---|---|
+| 점유 확인 | `ss -ltnp \| grep :8090` / `lsof -i :8090` | `lsof -nP -iTCP:8090 -sTCP:LISTEN` | `netstat -ano \| findstr :8090` / `Get-NetTCPConnection -LocalPort 8090` |
+| PID → 프로그램 | `ps -o pid,cmd -p <PID>` | `ps -p <PID> -o pid,command` | `Get-Process -Id <PID>` |
+| 종료 | `kill <PID>` → (필요시) `kill -9 <PID>` | `kill <PID>` → (필요시) `kill -9 <PID>` | `Stop-Process -Id <PID>` / `taskkill /PID <PID> /F` |
+| 컨테이너인 경우 | `docker ps --filter publish=8090` → `docker stop <name>` | 동일 | 동일 |
+
+> 다른 사용자 소유 프로세스는 `lsof`/`ss -p`에 PID가 보이지 않을 수 있다. 이때는 `sudo`가 필요하다. sudo가 제한된 환경에서는 해당 프로세스를 끄지 말고 **호스트 포트를 바꿔** 실행한다.
+
 ## 16. 개념 정리 (과제 목표)
 
 ### 절대 경로 vs 상대 경로
@@ -683,6 +774,7 @@ To https://github.com/JiNS03/e1-1.git
 | 볼륨 | `rm -f` 후 새 컨테이너에서 `cat` | 데이터 동일 | [§12](#12-docker-볼륨-영속성), [log](logs/07-volume.txt) |
 | Git/GitHub | `git config --list`, `git push` | 설정값, `main...origin/main` | [§13](#13-git-설정-및-github-연동), [log](logs/11-git-push.txt) |
 | Compose | `compose up/ps/logs/down` | 서비스 이름 통신 성공 | [§14](#14-보너스-compose--환경-변수), [log](logs/08-compose.txt) |
+| 포트 충돌 해제 | `docker ps --filter publish`, `ss -ltnp`, `lsof -i`, `kill` | 해제 후 재실행 시 HTTP 200 | [§15 #5](#5-포트-충돌-port-is-already-allocated--address-already-in-use), [log](logs/12-port-conflict.txt) |
 
 ## 18. 재현 방법 & 주의사항
 
@@ -713,5 +805,10 @@ docker rm -f e11-web-8090 e11-bind && docker volume rm e11-data
 **주의사항**
 - **Windows**: 권한 실습(`chmod`)은 **WSL 리눅스 파일시스템(`~/...`)** 에서 해야 한다. `/mnt/c/...`(NTFS)에서는 권한 비트가 기대대로 바뀌지 않는다. 바인드 마운트도 WSL 경로에서 하는 편이 변경 반영이 빠르다.
 - **macOS (sudo 제한)**: Docker Desktop 대신 OrbStack을 실행한 뒤 같은 명령을 사용한다. `stat -c`는 GNU 옵션이므로 macOS에서는 `stat -f "%Sp %Lp %N"`로 대체한다.
-- **포트 충돌**: 8090~8094가 이미 사용 중이면 `-p` 앞쪽(호스트 포트)만 바꾸면 된다.
+- **포트 충돌**: `port is already allocated` 또는 `Address already in use`가 나면 다음 순서로 처리한다. (상세: [트러블슈팅 #5](#5-포트-충돌-port-is-already-allocated--address-already-in-use))
+  1. 점유 주체 확인: `docker ps --filter publish=<port>` (컨테이너) / `ss -ltnp | grep :<port>` 또는 `lsof -i :<port>` (프로세스)
+  2. PID 확인: `ps -o pid,user,cmd -p <PID>`로 무엇을 끄는지 확인한다.
+  3. 해제: `docker stop <name>` 또는 `kill <PID>` (응답이 없을 때만 `kill -9`)
+  4. 재확인: `lsof -i :<port> || echo free`
+  5. 재시작 후 `curl`로 확인한다. 기존 프로세스를 끌 수 없으면 `-p` 앞쪽(호스트 포트)만 바꿔 실행한다.
 - **민감정보**: 로그의 이메일은 `****@gmail.com`으로 마스킹했다. 토큰은 파일이나 로그에 남기지 않았다. (credential helper가 실행 시점에만 전달)

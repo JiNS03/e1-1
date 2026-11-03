@@ -1,0 +1,82 @@
+# [A] 컨테이너가 호스트 포트를 점유한 경우
+
+$ docker run -d -p 8090:80 --name e11-conflict e11-web:1.0
+9c0b8833cc0108c5891266f1c2c910b94b27142ddb4f57a72ab210bc2ac9fd84
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint e11-conflict (baad6e0d15ce6af255b4f53d2a4731ea15ebd521a6cdfb5e15088f393fe41a79): Bind for 0.0.0.0:8090 failed: port is already allocated
+
+Run 'docker run --help' for more information
+
+$ docker rm -f e11-conflict    # 생성만 되고 시작 실패한 컨테이너 정리
+e11-conflict
+
+$ docker ps --filter publish=8090 --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"
+CONTAINER ID   NAMES          PORTS
+17707e4a649c   e11-web-8090   0.0.0.0:8090->80/tcp, [::]:8090->80/tcp
+
+$ docker stop e11-web-8090
+e11-web-8090
+
+$ docker ps --filter publish=8090 --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}"
+CONTAINER ID   NAMES     PORTS
+
+$ docker run -d -p 8090:80 --name e11-conflict e11-web:1.0
+96b23a28a13a1aac846028cbc5081a41b11cb734d447ea68cd649abd229699e9
+
+$ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8090/
+200
+
+$ docker rm -f e11-conflict && docker start e11-web-8090    # 원래 상태로 복구
+e11-conflict
+e11-web-8090
+
+# [B] 일반 프로세스가 포트를 점유한 경우 (같은 포트로 서버 2개 실행)
+
+$ python3 -m http.server 8095 2>&1 | tail -1
+OSError: [Errno 98] Address already in use
+
+$ ss -ltnp | grep ":8095 "
+LISTEN 0      5             0.0.0.0:8095      0.0.0.0:*    users:(("python3",pid=9353,fd=3))
+
+$ lsof -i :8095
+COMMAND  PID  USER FD   TYPE DEVICE SIZE/OFF NODE NAME
+python3 9353 jin03 3u  IPv4 146774      0t0  TCP *:8095 (LISTEN)
+
+$ ps -o pid,user,cmd -p $(lsof -t -i :8095)
+    PID USER     CMD
+   9353 jin03    python3 -m http.server 8095
+
+$ kill $(lsof -t -i :8095)       # SIGTERM 으로 정상 종료 요청 (응답 없으면 kill -9)
+
+$ lsof -i :8095 || echo "8095 free"
+8095 free
+
+$ ss -ltn | grep ":8095 " || echo "8095 free"
+8095 free
+
+$ ss -ltnp | grep ":8095 "    # 재시작 성공
+LISTEN 0      5             0.0.0.0:8095      0.0.0.0:*    users:(("python3",pid=9374,fd=3))
+
+$ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8095/
+200
+
+# [C] 관찰: Docker Desktop + WSL 환경의 특성
+
+$ ss -ltnp | grep ":8096 "
+LISTEN 0      5             0.0.0.0:8096      0.0.0.0:*    users:(("python3",pid=9382,fd=3))
+
+$ docker run -d -p 8096:80 --name e11-conflict e11-web:1.0    # WSL 프로세스와 충돌하지 않음
+792f76d479cc95efe686149ce540069bb7276d1538ab62518e042aff74a6fcef
+
+$ docker rm -f e11-conflict
+e11-conflict
+
+$ docker stop e11-web-8091 && ss -ltn | grep ":8091 " || echo "8091 free"
+e11-web-8091
+LISTEN 0      4096                *:8091            *:*   
+
+$ ss -ltn | grep ":8091 " || echo "8091 free"    # 3초 후 재확인
+8091 free
+
+$ docker start e11-web-8091
+e11-web-8091
+
